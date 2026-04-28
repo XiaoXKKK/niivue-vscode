@@ -344,7 +344,8 @@ export class NiiVueEditorProvider implements vscode.CustomReadonlyEditorProvider
     if (match) {
       const rawFilename = match[1].trim()
       if (rawFilename.toUpperCase() !== 'LOCAL') {
-        const dirPath = mhdUri.path.substring(0, mhdUri.path.lastIndexOf('/'))
+        const slashIndex = mhdUri.path.lastIndexOf('/')
+        const dirPath = slashIndex >= 0 ? mhdUri.path.substring(0, slashIndex) : ''
         return mhdUri.with({ path: `${dirPath}/${rawFilename}` })
       }
     }

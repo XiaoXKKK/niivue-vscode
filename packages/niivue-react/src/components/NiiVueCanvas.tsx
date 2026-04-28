@@ -251,7 +251,11 @@ async function loadVolume(nv: ExtendedNiivue, item: any, settings: NiiVueSetting
       if (item.pairedData) {
         // Detached format (e.g. MHD + .raw): wrap the raw pixel data in a
         // temporary Blob URL so NiiVue can fetch it as urlImgData.
-        const pairedBuffer = ensureArrayBuffer(item.pairedData) as ArrayBuffer
+        const rawPaired: unknown = item.pairedData
+        const pairedBuffer: ArrayBuffer =
+          rawPaired instanceof ArrayBuffer
+            ? rawPaired
+            : new Uint8Array(rawPaired as number[]).buffer
         const blobUrl = URL.createObjectURL(new Blob([pairedBuffer]))
         try {
           const volume = await NVImage.loadFromUrl({
