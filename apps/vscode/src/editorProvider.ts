@@ -377,11 +377,15 @@ export class NiiVueEditorProvider implements vscode.CustomReadonlyEditorProvider
       }
       webview.postMessage({ type: 'addImage', body })
     } else {
-      const body: Record<string, unknown> = { data: mhdData.buffer, uri: uri.toString() }
+      const toArrayBuffer = (u8: Uint8Array): ArrayBuffer =>
+        u8.byteOffset === 0 && u8.byteLength === u8.buffer.byteLength
+          ? u8.buffer
+          : u8.buffer.slice(u8.byteOffset, u8.byteOffset + u8.byteLength)
+      const body: Record<string, unknown> = { data: toArrayBuffer(mhdData), uri: uri.toString() }
       if (rawUri) {
         try {
           const rawData = await vscode.workspace.fs.readFile(rawUri)
-          body.pairedData = rawData.buffer
+          body.pairedData = toArrayBuffer(rawData)
         } catch {
           // Fall back to header-only; NiiVue may still handle LOCAL data
         }

@@ -185,7 +185,11 @@ async function loadVolume(nv: ExtendedNiivue, item: any, settings: NiiVueSetting
     // If the item is an image type but has no data, load it from the URL.
     // Pass urlImgData so NiiVue can fetch the paired raw file for detached
     // formats like MHD (ElementDataFile = <name>.raw).
-    const image = { url: item.uri, urlImgData: item.urlImgData || '', colormap: settings.defaultVolumeColormap }
+    const image = {
+      url: item.uri,
+      colormap: settings.defaultVolumeColormap,
+      ...(item.urlImgData ? { urlImgData: item.urlImgData } : {}),
+    }
     await nv.loadImages([image])
     return
   }
