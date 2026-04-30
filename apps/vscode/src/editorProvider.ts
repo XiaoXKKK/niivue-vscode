@@ -19,7 +19,7 @@ export class NiiVueEditorProvider implements vscode.CustomReadonlyEditorProvider
   private static readonly viewType = 'niiVue.default'
   private readonly webviews = new WebviewCollection()
 
-  constructor(private readonly _context: vscode.ExtensionContext) {}
+  constructor(private readonly _context: vscode.ExtensionContext) { }
 
   async openCustomDocument(uri: vscode.Uri): Promise<NiiVueDocument> {
     console.log(`Opening document ${uri}`)
@@ -205,7 +205,7 @@ export class NiiVueEditorProvider implements vscode.CustomReadonlyEditorProvider
                     panel.webview.postMessage({
                       type: 'addImage',
                       body: {
-                        data: data.buffer,
+                        data: NiiVueEditorProvider.toArrayBuffer(data),
                         uri: uri.toString(),
                       },
                     })
@@ -244,7 +244,9 @@ export class NiiVueEditorProvider implements vscode.CustomReadonlyEditorProvider
     const files = await vscode.workspace.fs.readDirectory(folderUri)
     const fileUris = files.map((file) => vscode.Uri.joinPath(folderUri, file[0]))
     const data = await Promise.all(
-      fileUris.map((uri) => vscode.workspace.fs.readFile(uri).then((data) => data.buffer)),
+      fileUris.map((uri) =>
+        vscode.workspace.fs.readFile(uri).then((data) => NiiVueEditorProvider.toArrayBuffer(data)),
+      ),
     )
     panel.webview.postMessage({
       type: 'addImage',
@@ -299,7 +301,7 @@ export class NiiVueEditorProvider implements vscode.CustomReadonlyEditorProvider
           webviewPanel.webview.postMessage({
             type: 'addImage',
             body: {
-              data: data.buffer,
+              data: NiiVueEditorProvider.toArrayBuffer(data),
               uri: document.uri.toString(),
             },
           })
@@ -352,6 +354,12 @@ export class NiiVueEditorProvider implements vscode.CustomReadonlyEditorProvider
     return null
   }
 
+  private static toArrayBuffer(data: Uint8Array): ArrayBuffer {
+    const buffer = new ArrayBuffer(data.byteLength)
+    new Uint8Array(buffer).set(data)
+    return buffer
+  }
+
   /**
    * Read an MHD file, resolve its paired .raw file, and send an addImage
    * message to the webview with both parts.
@@ -377,15 +385,14 @@ export class NiiVueEditorProvider implements vscode.CustomReadonlyEditorProvider
       }
       webview.postMessage({ type: 'addImage', body })
     } else {
-      const toArrayBuffer = (u8: Uint8Array): ArrayBuffer =>
-        u8.byteOffset === 0 && u8.byteLength === u8.buffer.byteLength
-          ? u8.buffer
-          : u8.buffer.slice(u8.byteOffset, u8.byteOffset + u8.byteLength)
-      const body: Record<string, unknown> = { data: toArrayBuffer(mhdData), uri: uri.toString() }
+      const body: Record<string, unknown> = {
+        data: NiiVueEditorProvider.toArrayBuffer(mhdData),
+        uri: uri.toString(),
+      }
       if (rawUri) {
         try {
           const rawData = await vscode.workspace.fs.readFile(rawUri)
-          body.pairedData = toArrayBuffer(rawData)
+          body.pairedData = NiiVueEditorProvider.toArrayBuffer(rawData)
         } catch {
           // Fall back to header-only; NiiVue may still handle LOCAL data
         }
