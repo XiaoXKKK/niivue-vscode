@@ -214,6 +214,7 @@ function bucketData(istanbulData) {
     }
     result[bucket.id] = { label: bucket.label, stats: computeStats(subset) }
   }
+  result._overall = { label: 'Overall', stats: computeStats(istanbulData) }
   return result
 }
 
@@ -226,25 +227,109 @@ function pctStr(v) {
   return `${v}%`
 }
 
-function buildMarkdownTable(summary) {
+function deltaStr(curr, prev) {
+  if (curr === null || prev === null || prev === undefined) return ''
+  const diff = Math.round((curr - prev) * 10) / 10
+  if (diff === 0) return ''
+  const sign = diff > 0 ? '+' : '−'
+  return ` (${sign}${Math.abs(diff)})`
+}
+
+// Shields color thresholds for line coverage.
+function badgeColor(pct) {
+  if (pct === null) return 'lightgrey'
+  if (pct >= 90) return 'brightgreen'
+  if (pct >= 80) return 'green'
+  if (pct >= 70) return 'yellowgreen'
+  if (pct >= 60) return 'yellow'
+  if (pct >= 50) return 'orange'
+  return 'red'
+}
+
+function buildBadgeJson(summary) {
+  const overall = summary._overall?.stats?.lines
+  return {
+    schemaVersion: 1,
+    label: 'coverage',
+    message: overall === null || overall === undefined ? 'unknown' : `${overall}%`,
+    color: badgeColor(overall ?? null),
+  }
+}
+
+// Render a single cell. When the current run produced no value for this
+// metric but the baseline (last main run) has one, carry the baseline value
+// forward with a "*" marker so readers can tell the row was skipped, not
+// permanently uncovered. Returns { text, stale }.
+function renderCell(curr, prev) {
+  if (curr !== null && curr !== undefined) {
+    return { text: pctStr(curr) + deltaStr(curr, prev), stale: false }
+  }
+  if (prev !== null && prev !== undefined) {
+    return { text: `${prev}%*`, stale: true }
+  }
+  return { text: 'N/A', stale: false }
+}
+
+function buildMarkdownTable(summary, opts = {}) {
+  const { baseline = null, reportUrl = null, badgeUrl = null } = opts
+
+  const overall = summary._overall?.stats?.lines ?? null
+  const baseOverall = baseline?._overall?.stats?.lines ?? null
+
+  let anyStale = false
   const rows = BUCKETS.map((b) => {
     const s = summary[b.id]?.stats ?? {}
-    return [
-      b.label,
-      pctStr(s.statements),
-      pctStr(s.branches),
-      pctStr(s.functions),
-      pctStr(s.lines),
+    const baseStats = baseline?.[b.id]?.stats ?? {}
+    const cells = [
+      renderCell(s.statements ?? null, baseStats.statements ?? null),
+      renderCell(s.branches ?? null, baseStats.branches ?? null),
+      renderCell(s.functions ?? null, baseStats.functions ?? null),
+      renderCell(s.lines ?? null, baseStats.lines ?? null),
     ]
+    if (cells.some((c) => c.stale)) anyStale = true
+    return [b.label, ...cells.map((c) => c.text)]
   })
 
-  const header = ['Row', 'Statements', 'Branches', 'Functions', 'Lines']
+  const header = ['Package', 'Statements', 'Branches', 'Functions', 'Lines']
   const separator = header.map(() => '---')
   const table = [header, separator, ...rows]
     .map((row) => `| ${row.join(' | ')} |`)
     .join('\n')
 
-  return `## Coverage Summary\n\n${table}\n`
+  const lines = ['## Coverage Report', '']
+
+  if (badgeUrl) {
+    const badgeImg = `![coverage](${badgeUrl})`
+    lines.push(badgeImg)
+    lines.push('')
+  }
+
+  const overallCell = renderCell(overall, baseOverall)
+  if (overallCell.text !== 'N/A') {
+    if (overallCell.stale) anyStale = true
+    if (overall !== null) {
+      const delta = deltaStr(overall, baseOverall)
+      lines.push(`**Overall line coverage: ${pctStr(overall)}${delta ? ` ${delta.trim()} vs \`main\`` : ''}**`)
+    } else {
+      lines.push(`**Overall line coverage: ${overallCell.text}**`)
+    }
+    lines.push('')
+  }
+
+  lines.push(table)
+  lines.push('')
+
+  if (anyStale) {
+    lines.push('_\\* value carried over from `main` — this run did not produce coverage for that cell._')
+    lines.push('')
+  }
+
+  if (reportUrl) {
+    lines.push(`📊 [View full report →](${reportUrl})`)
+    lines.push('')
+  }
+
+  return lines.join('\n')
 }
 
 function buildHtmlReport(mergedData) {
@@ -315,8 +400,25 @@ async function main() {
   }
 
   const summary = bucketData(mergedData)
-  const markdownTable = buildMarkdownTable(summary)
+
+  // Optional baseline (previous summary.json fetched from gh-pages main report)
+  let baseline = null
+  const baselinePath = process.env.COVERAGE_BASELINE
+  if (baselinePath && existsSync(baselinePath)) {
+    try {
+      baseline = JSON.parse(readFileSync(baselinePath, 'utf8'))
+      console.log(`📐 Using baseline: ${baselinePath}`)
+    } catch (err) {
+      console.warn(`⚠️  Could not parse baseline at ${baselinePath}: ${err.message}`)
+    }
+  }
+
+  const reportUrl = process.env.COVERAGE_REPORT_URL || null
+  const badgeUrl = process.env.COVERAGE_BADGE_URL || null
+
+  const markdownTable = buildMarkdownTable(summary, { baseline, reportUrl, badgeUrl })
   const htmlReport = buildHtmlReport(mergedData)
+  const badgeJson = buildBadgeJson(summary)
 
   // Write outputs
   const outDir = path.join(repoRoot, 'coverage')
@@ -326,12 +428,14 @@ async function main() {
   writeFileSync(path.join(mergedDir, 'index.html'), htmlReport, 'utf8')
   writeFileSync(path.join(outDir, 'summary.json'), JSON.stringify(summary, null, 2), 'utf8')
   writeFileSync(path.join(outDir, 'summary.md'), markdownTable, 'utf8')
+  writeFileSync(path.join(outDir, 'badge.json'), JSON.stringify(badgeJson, null, 2), 'utf8')
 
   console.log('\n' + markdownTable)
   console.log(`✅ Written:`)
   console.log(`   coverage/merged/index.html`)
   console.log(`   coverage/summary.json`)
   console.log(`   coverage/summary.md`)
+  console.log(`   coverage/badge.json`)
 }
 
 main().catch((err) => {
