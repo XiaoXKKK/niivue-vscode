@@ -22,6 +22,25 @@ export default defineConfig({
     ['html', { open: 'never' }], // Don't auto-open browser with report
     ['junit', { outputFile: 'test-results/junit.xml' }],
     ['json', { outputFile: 'test-results/results.json' }],
+    ['monocart-reporter', {
+      name: 'NiiVue PWA Coverage',
+      outputFile: './coverage/e2e/index.html',
+      coverage: {
+        entryFilter: (entry: { url: string }) => entry.url.startsWith('http://localhost:4000'),
+        // niivue-react files arrive repo-root-relative (because Vite resolves
+        // them via the `../../packages/niivue-react/src` alias). pwa's own
+        // files arrive Vite-root-relative as `src/...` — Vite treats apps/pwa
+        // as the project root. Canonicalize the pwa case so both the filter
+        // and the aggregator's bucket matcher catch them.
+        sourcePath: (sourcePath: string) =>
+          sourcePath.startsWith('src/') ? 'apps/pwa/' + sourcePath : sourcePath,
+        sourceFilter: (sourcePath: string) =>
+          sourcePath.includes('apps/pwa/src') ||
+          sourcePath.includes('packages/niivue-react/src'),
+        reports: ['v8', 'json', 'json-summary', 'lcov'],
+        outputDir: './coverage/e2e',
+      },
+    }],
   ],
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
@@ -65,12 +84,19 @@ export default defineConfig({
     // },
   ],
 
-  /* Run your local dev server before starting the tests */
+  /*
+   * Build the app and serve it via `vite preview` so source maps have full
+   * paths (e.g. `apps/pwa/src/Pwa.tsx`, `packages/niivue-react/src/...`).
+   * `--base /` overrides the GitHub Pages base so tests can hit the root.
+   * For local iteration, run `pnpm dev` separately and playwright will
+   * reuseExistingServer.
+   */
   webServer: {
-    command: 'pnpm run dev',
+    command:
+      'node copy-assets.mjs && vite build --base / && vite preview --base / --port 4000',
     url: 'http://localhost:4000',
     reuseExistingServer: !process.env.CI,
-    timeout: 120 * 1000, // 120 seconds to start server
+    timeout: 5 * 60 * 1000, // 5 minutes — production build can take a while
   },
 
   /* Global setup and teardown */

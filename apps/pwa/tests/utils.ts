@@ -1,6 +1,22 @@
-import { Page } from '@playwright/test'
+import { Page, TestInfo } from '@playwright/test'
+import { addCoverageReport } from 'monocart-reporter'
 
 export const BASE_URL = 'http://localhost:4000/'
+
+export async function startCoverage(page: Page) {
+  await Promise.all([
+    page.coverage.startJSCoverage({ resetOnNavigation: false }),
+    page.coverage.startCSSCoverage({ resetOnNavigation: false }),
+  ])
+}
+
+export async function stopCoverage(page: Page, testInfo: TestInfo) {
+  const [js, css] = await Promise.all([
+    page.coverage.stopJSCoverage(),
+    page.coverage.stopCSSCoverage(),
+  ])
+  await addCoverageReport([...js, ...css], testInfo)
+}
 
 export async function waitForImageLoad(page: Page, timeout = 10000) {
   // Snapshot the current loaded count before we start waiting.
