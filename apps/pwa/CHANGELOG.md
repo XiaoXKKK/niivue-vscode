@@ -1,6 +1,6 @@
-# Change Log
+# @niivue/pwa
 
-## 2.9.0
+## 0.1.0
 
 ### Minor Changes
 
@@ -15,19 +15,11 @@
   added onVolumeUpdated callback to ExtendedNiivue, called after load
 - c4394cb: Fix MHD files loading as a black image. MHD is a detached format where voxel data lives in a separate `.raw` file referenced by `ElementDataFile` in the header. NiiVue's URL-based loader does not auto-detect the paired `.raw` URL for MHD files, so the extension now parses the header, resolves the raw file URI, and passes it to the webview as `urlImgData` (URL path) or `pairedData` (binary-data path). The webview forwards `urlImgData` to NiiVue's `loadImages` call and uses a Blob URL to load `pairedData` when binary buffers are provided.
 - 79610b8: Initial configuration for automated independent releases via Changesets.
-
-## [2.6.2] - 2026-02-02
-
-### Added
-
-- New 4D navigation panel.
-- Improved error handling in canvas with descriptive error messages.
-- Added support for `.mnc` files in JupyterLab extension.
-
-### Fixed
-
-- Fixed double loading issue for images where files would open twice.
-
-## [Unreleased]
-
-- Initial release
+- ddc9f52: Tooling: enable Istanbul reporter for Playwright/monocart e2e coverage so per-PR coverage HTML reports include e2e data alongside Vitest unit coverage. No runtime behavior change in the PWA itself.
+- Updated dependencies [e98248f]
+- Updated dependencies [27432cf]
+- Updated dependencies [23028fd]
+- Updated dependencies [c4394cb]
+- Updated dependencies [79610b8]
+- Updated dependencies [62ecdef]
+  - @niivue/react@0.2.0

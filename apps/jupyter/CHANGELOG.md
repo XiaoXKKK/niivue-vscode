@@ -1,10 +1,6 @@
-# Change Log
+# @niivue/jupyter
 
-## 2.9.0
-
-### Minor Changes
-
-- 62ecdef: Add keyboard shortcuts
+## 0.2.7
 
 ### Patch Changes
 
@@ -15,19 +11,3 @@
   added onVolumeUpdated callback to ExtendedNiivue, called after load
 - c4394cb: Fix MHD files loading as a black image. MHD is a detached format where voxel data lives in a separate `.raw` file referenced by `ElementDataFile` in the header. NiiVue's URL-based loader does not auto-detect the paired `.raw` URL for MHD files, so the extension now parses the header, resolves the raw file URI, and passes it to the webview as `urlImgData` (URL path) or `pairedData` (binary-data path). The webview forwards `urlImgData` to NiiVue's `loadImages` call and uses a Blob URL to load `pairedData` when binary buffers are provided.
 - 79610b8: Initial configuration for automated independent releases via Changesets.
-
-## [2.6.2] - 2026-02-02
-
-### Added
-
-- New 4D navigation panel.
-- Improved error handling in canvas with descriptive error messages.
-- Added support for `.mnc` files in JupyterLab extension.
-
-### Fixed
-
-- Fixed double loading issue for images where files would open twice.
-
-## [Unreleased]
-
-- Initial release
