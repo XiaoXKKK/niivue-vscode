@@ -57,6 +57,11 @@
     },
     "clean": {
       "cache": false
+    },
+    "coverage": {
+      "dependsOn": [],
+      "outputs": ["coverage/**"],
+      "inputs": ["src/**", "test/**", "tests/**"]
     }
   }
 }
